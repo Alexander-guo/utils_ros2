@@ -1,0 +1,38 @@
+# Image width and height
+image_width: 960
+image_height: 540
+
+#Distortion Model and Coefficients
+#Available distortion models are: "plumb_bob", "equidistant" and "rational_polynomial"
+distortion_model: plumb_bob
+distortion_coefficients: [-0.1150974141409347,  0.10292772047643643, 0.001419836324816038, -0.0018379214527896284, 0.0]
+
+#Camera Matix
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [582.7585362687838, 0.0, 479.95702656023155,
+        0.0, 580.8446349178992, 271.8298929212255,
+        0.0, 0.0, 1.0]
+
+# Rectification matrix (stereo cameras only)
+# A rotation matrix aligning the camera coordinate system to the ideal
+# stereo image plane so that epipolar lines in both stereo images are
+# parallel.
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+
+
+#Projection Matrix
+# For Mono camera: should be same as camera matrix
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [582.7585362687838, 0.0, 479.95702656023155, 0.0, 
+        0.0, 580.8446349178992, 271.8298929212255, 0.0,
+        0.0, 0.0, 1.0, 0.0]
+

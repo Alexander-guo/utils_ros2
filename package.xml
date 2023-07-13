@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>utils_ros</name>
+  <version>0.0.1</version>
+  <description> This package constains the utils used in several SLAM projects  </description>
+  <maintainer email="bjoshi@email.sc.edu">Bharat Joshi</maintainer>
+  <license>BSD</license>
+
+  <author email="bjoshi@email.sc.edu">Bharat Joshi</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>roscpp</depend>
+  <depend>rosbag</depend>
+  <depend>message_filters</depend>
+  <depend>image_transport</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
+  <depend>camera_info_manager</depend>
+
+  <exec_depend>rospy</exec_depend>
+
+</package>
