@@ -47,17 +47,28 @@ int main(int argc, char *argv[])
     {
         std::cerr << "ERROR: Wrong path to intrinsics" << std::endl;
     }
-
-    cv::FileNode left_node = fsSettings["left"];
-    cv::FileNode right_node = fsSettings["right"];
+    cv::FileNode left_node, right_node;
+    if (stereo)
+    {
+        cv::FileNode left_node = fsSettings["left"];
+        cv::FileNode right_node = fsSettings["right"];
+    }
+    else
+    {
+        left_node = fsSettings.root();
+    }
 
     cv::Mat left_distort = cv::Mat::zeros(4, 1, CV_64F);
     cv::Mat left_K = cv::Mat::eye(3, 3, CV_64F);
     cv::Mat right_distort = cv::Mat::zeros(4, 1, CV_64F);
     cv::Mat right_K = cv::Mat::eye(3, 3, CV_64F);
 
+    if (stereo)
+    {
+        Utils::readIntrinsics(right_node, right_K, right_distort);
+    }
+
     Utils::readIntrinsics(left_node, left_K, left_distort);
-    Utils::readIntrinsics(right_node, right_K, right_distort);
 
     if (traj_file.empty() || bag_file.empty() || left_image_topic.empty() || image_dir.empty() || config_file.empty())
         exit(1);
@@ -66,9 +77,17 @@ int main(int argc, char *argv[])
     traj.loadTrajectory(' ', skip_first_line, true);
 
     std::set<std::uint64_t> kf_stamps = traj.getTimestamps();
+    std::string left_image_dir, right_image_dir;
 
-    std::string left_image_dir = image_dir + "/left";
-    std::string right_image_dir = image_dir + "/right";
+    if (stereo)
+    {
+        left_image_dir = image_dir + "/left";
+        right_image_dir = image_dir + "/right";
+    }
+    else
+    {
+        left_image_dir = image_dir;
+    }
 
     if (!fs::exists(left_image_dir))
     {
@@ -92,7 +111,6 @@ int main(int argc, char *argv[])
     bag.open(bag_file, rosbag::bagmode::Read);
 
     rosbag::View view_left(bag, rosbag::TopicQuery(left_image_topic));
-    rosbag::View view_right(bag, rosbag::TopicQuery(right_image_topic));
 
     cv::Mat image;
     std::int64_t stamp;
@@ -119,7 +137,8 @@ int main(int argc, char *argv[])
 
     cv::Mat left_map_x, left_map_y, right_map_x, right_map_y;
     cv::initUndistortRectifyMap(left_K, left_distort, cv::Mat(), left_K, cv::Size(original_width, original_height), CV_32FC1, left_map_x, left_map_y);
-    cv::initUndistortRectifyMap(right_K, right_distort, cv::Mat(), right_K, cv::Size(original_width, original_height), CV_32FC1, right_map_x, right_map_y);
+    if (stereo)
+        cv::initUndistortRectifyMap(right_K, right_distort, cv::Mat(), right_K, cv::Size(original_width, original_height), CV_32FC1, right_map_x, right_map_y);
 
     size_t kf_images = 0;
     cv::Mat undistorted_image;
@@ -152,27 +171,31 @@ int main(int argc, char *argv[])
         }
     }
 
-    for (auto it = view_right.begin(); it != view_right.end(); ++it)
+    if (stereo)
     {
-        if (compressed)
+        rosbag::View view_right(bag, rosbag::TopicQuery(right_image_topic));
+        for (auto it = view_right.begin(); it != view_right.end(); ++it)
         {
-            sensor_msgs::CompressedImageConstPtr image_msg = it->instantiate<sensor_msgs::CompressedImage>();
-            image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
-            stamp = image_msg->header.stamp.toNSec();
-        }
-        else
-        {
-            sensor_msgs::ImageConstPtr image_msg = it->instantiate<sensor_msgs::Image>();
-            image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
-            stamp = image_msg->header.stamp.toNSec();
-        }
-        std::string filename = right_image_dir + "/" + std::to_string(stamp) + ".png";
-        if (kf_stamps.find(stamp) != kf_stamps.end())
-        {
-            cv::remap(image, undistorted_image, right_map_x, right_map_y, cv::INTER_LINEAR);
-            if (scale != 1.0)
-                cv::resize(undistorted_image, undistorted_image, cv::Size(new_width, new_height));
-            cv::imwrite(filename, undistorted_image);
+            if (compressed)
+            {
+                sensor_msgs::CompressedImageConstPtr image_msg = it->instantiate<sensor_msgs::CompressedImage>();
+                image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
+                stamp = image_msg->header.stamp.toNSec();
+            }
+            else
+            {
+                sensor_msgs::ImageConstPtr image_msg = it->instantiate<sensor_msgs::Image>();
+                image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
+                stamp = image_msg->header.stamp.toNSec();
+            }
+            std::string filename = right_image_dir + "/" + std::to_string(stamp) + ".png";
+            if (kf_stamps.find(stamp) != kf_stamps.end())
+            {
+                cv::remap(image, undistorted_image, right_map_x, right_map_y, cv::INTER_LINEAR);
+                if (scale != 1.0)
+                    cv::resize(undistorted_image, undistorted_image, cv::Size(new_width, new_height));
+                cv::imwrite(filename, undistorted_image);
+            }
         }
     }
 
