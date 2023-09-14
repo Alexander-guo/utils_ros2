@@ -1,0 +1,31 @@
+<launch>
+
+    <!-- Arguments -->
+    <arg name="image_dir" value="/home/bjoshi/colmap/devils/images_1"/>
+    <arg name="scale" value="0.5"/>
+    <!-- 2 images per seconds -->
+    <arg name="write_every_secs" value="0.25"/>
+    <arg name="compressed" value="true"/>
+    <arg name="bag" value="/home/bjoshi/flir_2023-09-08-14-35-39.bag"/>
+    <arg name="stereo" value="false"/>
+
+    <arg name="left" value="/left/image_raw"/>
+    <arg name="right" value=""/>
+
+    <node name="gopro" pkg="utils_ros" type="extract_images.py" output="screen" required="true">
+
+        <param name="image_dir" value="$(arg image_dir)"/>
+        <param name="write_every_nsecs" value="$(arg write_every_secs)"/>
+        <param name="bag" value="$(arg bag)"/>
+
+        <param name="left" value="$(arg left)"/>
+        <param name="right" value="$(arg right)"/>
+        <param name="stereo" value="$(arg stereo)"/>
+        <param name="compressed" value="$(arg compressed)"/>
+        <param name="scale" value="$(arg scale)"/>
+
+    </node>
+
+</launch>
+
+
