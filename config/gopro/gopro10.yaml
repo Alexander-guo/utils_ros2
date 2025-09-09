@@ -1,0 +1,23 @@
+%YAML:1.0
+
+# Image width and height
+image_width: 1920
+image_height: 1080
+
+#Distortion Model and Coefficients
+#Available distortion models are: "plumb_bob", "equidistant" and "rational_polynomial"
+D: !!opencv-matrix
+    rows: 1
+    cols: 4
+    dt: d
+    data: [-0.07154614806316285, 0.17275073737940927, -0.0009540854697760907, -0.008725871476365036]
+
+#Camera Matix
+K: !!opencv-matrix
+  rows: 3
+  cols: 3
+  dt: d
+  data: [1282.6977865195622, 0.0, 928.3250199345833,
+        0.0, 1282.0563933415326, 517.4275148460564,
+        0.0, 0.0, 1.0]
+
