@@ -1,25 +1,36 @@
-<?xml version="1.0"?>
-<package format="2">
-  <name>utils_ros</name>
+<package format="3">
+  <name>utils_ros2</name>
   <version>0.0.1</version>
-  <description> This package constains the utils used in several SLAM projects  </description>
+  <description>This ROS 2 package contains utility nodes used in several SLAM projects.</description>
+
   <maintainer email="bjoshi@email.sc.edu">Bharat Joshi</maintainer>
+  <author email="bjoshi@email.sc.edu">Bharat Joshi</author>
   <license>BSD</license>
 
-  <author email="bjoshi@email.sc.edu">Bharat Joshi</author>
+  <!-- Build system -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <buildtool_depend>catkin</buildtool_depend>
-
+  <!-- Core ROS 2 dependencies -->
+  <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
-  <depend>roscpp</depend>
-  <depend>rosbag</depend>
-  <depend>message_filters</depend>
   <depend>image_transport</depend>
-  <depend>message_generation</depend>
-  <depend>message_runtime</depend>
   <depend>camera_info_manager</depend>
+  <depend>message_filters</depend>
 
-  <exec_depend>rospy</exec_depend>
+  <!-- Optional dependencies for ROS 2 bag reading/writing -->
+  <depend>rosbag2_cpp</depend>
+  <depend>rosbag2_transport</depend>
 
+  <!-- If you have Python nodes -->
+  <exec_depend>rclpy</exec_depend>
+
+  <!-- Testing support -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <!-- Export info -->
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>
