@@ -1,0 +1,31 @@
+<launch>
+
+  <!-- Arguments -->
+  <arg name="bag_file" default="/home/bjoshi/GX010172.bag"/>
+  <arg name="image_dir" default="/home/bjoshi/colmap/test/images"/>
+  <arg name="traj_file" default="/home/bjoshi/ros_workspaces/svin_ws/src/SVIn/pose_graph/svin_results/svin_2023_07_13_20_54_34.txt"/>
+  <arg name="left_image_topic" default="/gopro/image_raw"/>
+  <arg name="config_file" default="$(find-pkg-share utils_ros)/config/gopro/gopro1.yaml"/>
+
+  <arg name="scale" default="1.0"/>
+  <arg name="compressed" default="true"/>
+  <arg name="skip_first_line" default="true"/>
+
+  <!-- Node definition -->
+  <node pkg="utils_ros2"
+        exec="write_kf_images"
+        name="extract_keyframes"
+        output="screen">
+
+    <param name="bag_file" value="$(var bag_file)"/>
+    <param name="image_dir" value="$(var image_dir)"/>
+    <param name="traj_file" value="$(var traj_file)"/>
+    <param name="left_image_topic" value="$(var left_image_topic)"/>
+    <param name="config_file" value="$(var config_file)"/>
+
+    <param name="scale" value="$(var scale)"/>
+    <param name="compressed" value="$(var compressed)"/>
+    <param name="skip_first_line" value="$(var skip_first_line)"/>
+
+  </node>
+</launch>
