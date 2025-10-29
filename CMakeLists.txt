@@ -18,6 +18,9 @@ find_package(camera_info_manager REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 
 # ==============================================================================
 # Include directories
@@ -44,6 +47,9 @@ ament_target_dependencies(${PROJECT_NAME}
   camera_info_manager
   message_filters
   OpenCV
+  tf2_ros
+  tf2
+  rosbag2_cpp
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE -march=native)

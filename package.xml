@@ -12,11 +12,13 @@
 
   <!-- Core ROS 2 dependencies -->
   <depend>rclcpp</depend>
-  <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>image_transport</depend>
+  <depend>sensor_msgs</depend>
   <depend>camera_info_manager</depend>
   <depend>message_filters</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
 
   <!-- Optional dependencies for ROS 2 bag reading/writing -->
   <depend>rosbag2_cpp</depend>
