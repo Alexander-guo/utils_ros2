@@ -1,9 +1,12 @@
 #include "Trajectory.h"
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/logging.hpp>
 #include <fstream>
 #include <Eigen/Core>
+#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/quaternion.hpp"
 
-Trajectory::Trajectory(std::string &traj_file)
+Trajectory::Trajectory(const std::string &traj_file)
     : traj_file_(traj_file)
 {
 }
@@ -18,22 +21,25 @@ std::set<std::uint64_t> Trajectory::getTimestamps()
     return timestamps_;
 }
 
-std::vector<geometry_msgs::Pose> Trajectory::getPoses()
+std::vector<geometry_msgs::msg::Pose> Trajectory::getPoses()
 {
     return poses_;
 }
 
-bool Trajectory::loadTrajectory(std::string &traj_file, char separator, bool skip_first_line, bool double_stamp)
+bool Trajectory::loadTrajectory(const std::string &traj_file, char separator, bool skip_first_line, bool double_stamp)
 {
 
     stamp_to_indx_map_.clear();
     poses_.clear();
     timestamps_.clear();
 
-    ROS_INFO_STREAM("Parsing VIO trajectory data ....");
+    RCLCPP_INFO(rclcpp::get_logger("Trajectory"), "Parsing VIO trajectory data ....");
     std::ifstream fin(traj_file.c_str());
 
-    ROS_FATAL_STREAM_COND(!fin.is_open(), "Cannot open file: " << traj_file << '\n');
+    if (!fin.is_open()) {
+        RCLCPP_FATAL(rclcpp::get_logger("Trajectory"), "Cannot open file: %s", traj_file.c_str());
+        return false;
+    }
 
     // Skip the first line, containing the header.
     std::string line;
@@ -62,7 +68,7 @@ bool Trajectory::loadTrajectory(std::string &traj_file, char separator, bool ski
             line = line.substr(idx + 1);
         }
 
-        geometry_msgs::Point position;
+        geometry_msgs::msg::Point position;
         position.x = data_raw[0];
         position.y = data_raw[1];
         position.z = data_raw[2];
@@ -72,13 +78,13 @@ bool Trajectory::loadTrajectory(std::string &traj_file, char separator, bool ski
         // Sanity check.
         Eigen::Vector4d q(data_raw[3], data_raw[4], data_raw[5], data_raw[6]);
 
-        geometry_msgs::Quaternion rot;
+        geometry_msgs::msg::Quaternion rot;
         rot.x = q(0);
         rot.y = q(1);
         rot.z = q(2);
         rot.w = q(3);
 
-        geometry_msgs::Pose pose;
+        geometry_msgs::msg::Pose pose;
         pose.position = position;
         pose.orientation = rot;
 
@@ -88,7 +94,7 @@ bool Trajectory::loadTrajectory(std::string &traj_file, char separator, bool ski
         index++;
     }
 
-    ROS_INFO_STREAM("Added " << poses_.size() << " poses to trajectory.\n");
+    RCLCPP_INFO(rclcpp::get_logger("Trajectory"), "Added %zu poses to trajectory.", poses_.size());
     assert(timestamps_.size() == poses_.size());
     assert(timestamps_.size() == stamp_to_indx_map_.size());
 
@@ -96,7 +102,7 @@ bool Trajectory::loadTrajectory(std::string &traj_file, char separator, bool ski
     return true;
 }
 
-bool Trajectory::getPose(const std::uint64_t &timestamp, geometry_msgs::Pose &pose)
+bool Trajectory::getPose(const std::uint64_t &timestamp, geometry_msgs::msg::Pose &pose)
 {
     if (stamp_to_indx_map_.find(timestamp) != stamp_to_indx_map_.end())
     {

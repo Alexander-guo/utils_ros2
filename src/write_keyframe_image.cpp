@@ -1,46 +1,72 @@
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp/logger.hpp"
 #include "Trajectory.h"
-#include <rosbag/bag.h>
-#include <rosbag/view.h>
+#include "rosbag2_cpp/reader.hpp"
+#include "rosbag2_cpp/readers/sequential_reader.hpp"
 #include <opencv2/opencv.hpp>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/CompressedImage.h>
-#include <sensor_msgs/image_encodings.h>
-#include <cv_bridge/cv_bridge.h>
-#include <experimental/filesystem>
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/compressed_image.hpp"
+#include <cv_bridge/cv_bridge.hpp>
+#include <filesystem>
 #include "Utils.h"
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 int main(int argc, char *argv[])
 {
-
-    ros::init(argc, argv, "write_images_from_list");
-    ros::NodeHandle nh_private("~");
+    rclcpp::init(argc, argv);
+    auto node = rclcpp::Node::make_shared("write_images_from_list");
 
     std::string traj_file,
         bag_file, left_image_topic, right_image_topic, image_dir, config_file;
 
-    ROS_FATAL_STREAM_COND(!nh_private.getParam("traj_file", traj_file),
-                          "VIO keyframe trajectory file not set from params");
-    ROS_FATAL_STREAM_COND(!nh_private.getParam("bag_file", bag_file),
-                          "Bag file not set from params");
-    ROS_FATAL_STREAM_COND(!nh_private.getParam("left_image_topic", left_image_topic),
-                          "Image topic not set from params");
-    ROS_FATAL_STREAM_COND(!nh_private.getParam("image_dir", image_dir),
-                          "Output directory not set from params");
-    ROS_FATAL_STREAM_COND(!nh_private.getParam("config_file", config_file),
-                          "Config file not set from params");
+    node->declare_parameter("traj_file", "");
+    node->declare_parameter("bag_file", "");
+    node->declare_parameter("left_image_topic", "");
+    node->declare_parameter("image_dir", "");
+    node->declare_parameter("config_file", "");
+
+    traj_file = node->get_parameter("traj_file").as_string();
+    bag_file = node->get_parameter("bag_file").as_string();
+    left_image_topic = node->get_parameter("left_image_topic").as_string();
+    image_dir = node->get_parameter("image_dir").as_string();
+    config_file = node->get_parameter("config_file").as_string();
+
+    if (traj_file.empty()) {
+        RCLCPP_FATAL(node->get_logger(), "VIO keyframe trajectory file not set from params");
+        return 1;
+    }
+    if (bag_file.empty()) {
+        RCLCPP_FATAL(node->get_logger(), "Bag file not set from params");
+        return 1;
+    }
+    if (left_image_topic.empty()) {
+        RCLCPP_FATAL(node->get_logger(), "Image topic not set from params");
+        return 1;
+    }
+    if (image_dir.empty()) {
+        RCLCPP_FATAL(node->get_logger(), "Output directory not set from params");
+        return 1;
+    }
+    if (config_file.empty()) {
+        RCLCPP_FATAL(node->get_logger(), "Config file not set from params");
+        return 1;
+    }
 
     bool compressed = false;
     bool skip_first_line = false;
     bool stereo = false;
     double scale = 1.0;
 
-    nh_private.param("compressed", compressed, compressed);
-    nh_private.param("skip_first_line", skip_first_line, skip_first_line);
-    nh_private.param("stereo", stereo, stereo);
-    nh_private.param("scale", scale, scale);
+    node->declare_parameter("compressed", false);
+    node->declare_parameter("skip_first_line", false);
+    node->declare_parameter("stereo", false);
+    node->declare_parameter("scale", 1.0);
+
+    compressed = node->get_parameter("compressed").as_bool();
+    skip_first_line = node->get_parameter("skip_first_line").as_bool();
+    stereo = node->get_parameter("stereo").as_bool();
+    scale = node->get_parameter("scale").as_double();
 
     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
     if (!fsSettings.isOpened())
@@ -97,8 +123,12 @@ int main(int argc, char *argv[])
         left_image_topic = left_image_topic + "/compressed";
     if (stereo)
     {
-        ROS_FATAL_STREAM_COND(!nh_private.getParam("right_image_topic", right_image_topic),
-                              "right image topic not set from params");
+        node->declare_parameter("right_image_topic", "");
+        right_image_topic = node->get_parameter("right_image_topic").as_string();
+        if (right_image_topic.empty()) {
+            RCLCPP_FATAL(node->get_logger(), "right image topic not set from params");
+            return 1;
+        }
 
         if (!fs::exists(right_image_dir))
             fs::create_directories(right_image_dir);
@@ -107,33 +137,53 @@ int main(int argc, char *argv[])
             right_image_topic = right_image_topic + "/compressed";
     }
 
-    rosbag::Bag bag;
-    bag.open(bag_file, rosbag::bagmode::Read);
-
-    rosbag::View view_left(bag, rosbag::TopicQuery(left_image_topic));
+    rosbag2_cpp::Reader reader;
+    reader.open(bag_file);
 
     cv::Mat image;
     std::int64_t stamp;
+    bool first_message = true;
 
-    rosbag::View::iterator it_left = view_left.begin();
-    if (compressed)
-    {
-        sensor_msgs::CompressedImageConstPtr image_msg = it_left->instantiate<sensor_msgs::CompressedImage>();
-        image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
+    while (reader.has_next()) {
+        auto bag_message = reader.read_next();
+        if (bag_message->topic_name != left_image_topic) {
+            continue;
+        }
+
+        if (first_message) {
+            if (compressed)
+            {
+                auto image_msg = std::make_shared<sensor_msgs::msg::CompressedImage>();
+                rclcpp::SerializedMessage serialized_msg(*bag_message->serialized_data);
+                rclcpp::Serialization<sensor_msgs::msg::CompressedImage> serialization;
+                serialization.deserialize_message(&serialized_msg, image_msg.get());
+                image = cv_bridge::toCvCopy(image_msg, "bgr8")->image;
+            }
+            else
+            {
+                auto image_msg = std::make_shared<sensor_msgs::msg::Image>();
+                rclcpp::SerializedMessage serialized_msg(*bag_message->serialized_data);
+                rclcpp::Serialization<sensor_msgs::msg::Image> serialization;
+                serialization.deserialize_message(&serialized_msg, image_msg.get());
+                image = cv_bridge::toCvCopy(image_msg, "bgr8")->image;
+            }
+            first_message = false;
+            break;
+        }
     }
-    else
-    {
-        sensor_msgs::ImageConstPtr image_msg = it_left->instantiate<sensor_msgs::Image>();
-        image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
-    }
+
+    // Reset reader position
+    reader.close();
+    reader.open(bag_file);
 
     int original_width = image.size().width;
     int original_height = image.size().height;
     int new_width = static_cast<int>(original_width * scale);
     int new_height = static_cast<int>(original_height * scale);
 
-    ROS_INFO_STREAM("Orignial height, width: " << image.size().height << ", " << image.size().width);
-    ROS_INFO_STREAM("New height, width: " << new_height << ", " << new_width);
+    RCLCPP_INFO_STREAM(node->get_logger(), "Original height, width: "
+                   << image.size().height << ", " << image.size().width);
+    RCLCPP_INFO_STREAM(node->get_logger(), "New height, width: " << new_height << ", " << new_width);
 
     cv::Mat left_map_x, left_map_y, right_map_x, right_map_y;
     cv::initUndistortRectifyMap(left_K, left_distort, cv::Mat(), left_K, cv::Size(original_width, original_height), CV_32FC1, left_map_x, left_map_y);
@@ -141,20 +191,33 @@ int main(int argc, char *argv[])
         cv::initUndistortRectifyMap(right_K, right_distort, cv::Mat(), right_K, cv::Size(original_width, original_height), CV_32FC1, right_map_x, right_map_y);
 
     size_t kf_images = 0;
+    size_t total_images = 0;
     cv::Mat undistorted_image;
-    for (auto it = view_left.begin(); it != view_left.end(); ++it)
-    {
+    
+    while (reader.has_next()) {
+        auto bag_message = reader.read_next();
+        if (bag_message->topic_name != left_image_topic) {
+            continue;
+        }
+        total_images++;
+
         if (compressed)
         {
-            sensor_msgs::CompressedImageConstPtr image_msg = it->instantiate<sensor_msgs::CompressedImage>();
-            image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
-            stamp = image_msg->header.stamp.toNSec();
+            auto image_msg = std::make_shared<sensor_msgs::msg::CompressedImage>();
+            rclcpp::SerializedMessage serialized_msg(*bag_message->serialized_data);
+            rclcpp::Serialization<sensor_msgs::msg::CompressedImage> serialization;
+            serialization.deserialize_message(&serialized_msg, image_msg.get());
+            image = cv_bridge::toCvCopy(image_msg, "bgr8")->image;
+            stamp = image_msg->header.stamp.nanosec + image_msg->header.stamp.sec * 1000000000ULL;
         }
         else
         {
-            sensor_msgs::ImageConstPtr image_msg = it->instantiate<sensor_msgs::Image>();
-            image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
-            stamp = image_msg->header.stamp.toNSec();
+            auto image_msg = std::make_shared<sensor_msgs::msg::Image>();
+            rclcpp::SerializedMessage serialized_msg(*bag_message->serialized_data);
+            rclcpp::Serialization<sensor_msgs::msg::Image> serialization;
+            serialization.deserialize_message(&serialized_msg, image_msg.get());
+            image = cv_bridge::toCvCopy(image_msg, "bgr8")->image;
+            stamp = image_msg->header.stamp.nanosec + image_msg->header.stamp.sec * 1000000000ULL;
         }
         std::string filename = left_image_dir + "/" + std::to_string(stamp) + ".png";
 
@@ -173,20 +236,32 @@ int main(int argc, char *argv[])
 
     if (stereo)
     {
-        rosbag::View view_right(bag, rosbag::TopicQuery(right_image_topic));
-        for (auto it = view_right.begin(); it != view_right.end(); ++it)
+        reader.close();
+        reader.open(bag_file);
+        while (reader.has_next())
         {
+            auto bag_message = reader.read_next();
+            if (bag_message->topic_name != right_image_topic) {
+                continue;
+            }
+
             if (compressed)
             {
-                sensor_msgs::CompressedImageConstPtr image_msg = it->instantiate<sensor_msgs::CompressedImage>();
-                image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
-                stamp = image_msg->header.stamp.toNSec();
+                auto image_msg = std::make_shared<sensor_msgs::msg::CompressedImage>();
+                rclcpp::SerializedMessage serialized_msg(*bag_message->serialized_data);
+                rclcpp::Serialization<sensor_msgs::msg::CompressedImage> serialization;
+                serialization.deserialize_message(&serialized_msg, image_msg.get());
+                image = cv_bridge::toCvCopy(image_msg, "bgr8")->image;
+                stamp = image_msg->header.stamp.nanosec + image_msg->header.stamp.sec * 1000000000ULL;
             }
             else
             {
-                sensor_msgs::ImageConstPtr image_msg = it->instantiate<sensor_msgs::Image>();
-                image = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8)->image;
-                stamp = image_msg->header.stamp.toNSec();
+                auto image_msg = std::make_shared<sensor_msgs::msg::Image>();
+                rclcpp::SerializedMessage serialized_msg(*bag_message->serialized_data);
+                rclcpp::Serialization<sensor_msgs::msg::Image> serialization;
+                serialization.deserialize_message(&serialized_msg, image_msg.get());
+                image = cv_bridge::toCvCopy(image_msg, "bgr8")->image;
+                stamp = image_msg->header.stamp.nanosec + image_msg->header.stamp.sec * 1000000000ULL;
             }
             std::string filename = right_image_dir + "/" + std::to_string(stamp) + ".png";
             if (kf_stamps.find(stamp) != kf_stamps.end())
@@ -199,8 +274,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    ROS_INFO_STREAM("Wrote " << kf_images << "/" << view_left.size() << " images");
-    bag.close();
+    RCLCPP_INFO(node->get_logger(), "Wrote %zu/%zu images", kf_images, total_images);
+    reader.close();
+    rclcpp::shutdown();
 
     return 0;
 }

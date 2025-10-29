@@ -1,8 +1,8 @@
 #include "Utils.h"
 
-#include <ros/console.h>
+#include <rclcpp/rclcpp.hpp>
 #include <fstream>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <signal.h>
 
 namespace Utils
@@ -12,11 +12,17 @@ namespace Utils
                         std::vector<std::uint64_t> &time_stamps)
     {
 
-        ROS_FATAL_STREAM_COND(folder_path.empty(), "Camera Folder Empty: " << folder_path);
+        if (folder_path.empty()) {
+            RCLCPP_FATAL(rclcpp::get_logger("Utils"), "Camera Folder Empty: %s", folder_path.c_str());
+            return false;
+        }
         const std::string stamp_file = folder_path + "/" + "data.csv";
 
         std::ifstream fin(stamp_file.c_str());
-        ROS_FATAL_STREAM_COND(!fin.is_open(), "Cannot open file: " << stamp_file);
+        if (!fin.is_open()) {
+            RCLCPP_FATAL(rclcpp::get_logger("Utils"), "Cannot open file: %s", stamp_file.c_str());
+            return false;
+        }
 
         // Skip the first line, containing the header.
         std::string item;
@@ -42,7 +48,10 @@ namespace Utils
     {
 
         std::ifstream fin(trajectory_file.c_str());
-        ROS_FATAL_STREAM_COND(!fin.is_open(), "Cannot open file: " << trajectory_file);
+        if (!fin.is_open()) {
+            RCLCPP_FATAL(rclcpp::get_logger("Utils"), "Cannot open file: %s", trajectory_file.c_str());
+            return false;
+        }
 
         // Skip the first line, containing the header.
         std::string item;
@@ -63,7 +72,7 @@ namespace Utils
         return true;
     }
 
-    const cv::Mat readRosImage(const sensor_msgs::ImageConstPtr &img_msg, bool grayscale)
+    const cv::Mat readRosImage(const sensor_msgs::msg::Image::ConstSharedPtr &img_msg, bool grayscale)
     {
         cv_bridge::CvImageConstPtr cv_ptr;
         try
@@ -72,13 +81,13 @@ namespace Utils
         }
         catch (cv_bridge::Exception &exception)
         {
-            ROS_FATAL("cv_bridge exception: %s", exception.what());
+            RCLCPP_FATAL(rclcpp::get_logger("Utils"), "cv_bridge exception: %s", exception.what());
             raise(SIGABRT);
         }
 
         const cv::Mat img_const = cv_ptr->image; // Don't modify shared image in ROS.
         cv::Mat converted_img;
-        if (cv_ptr->encoding == sensor_msgs::image_encodings::BGR8)
+        if (cv_ptr->encoding == "bgr8")
         {
             if (grayscale)
             {
@@ -86,7 +95,7 @@ namespace Utils
             }
             return converted_img;
         }
-        else if (cv_ptr->encoding == sensor_msgs::image_encodings::RGB8)
+        else if (cv_ptr->encoding == "rgb8")
         {
             if (grayscale)
             {
@@ -102,7 +111,7 @@ namespace Utils
         return img_const;
     }
 
-    const cv::Mat readCompressedRosImage(const sensor_msgs::CompressedImageConstPtr &img_msg, bool grayscale)
+    const cv::Mat readCompressedRosImage(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &img_msg, bool grayscale)
     {
         cv_bridge::CvImageConstPtr cv_ptr;
         try
@@ -111,13 +120,13 @@ namespace Utils
         }
         catch (cv_bridge::Exception &exception)
         {
-            ROS_FATAL("cv_bridge exception: %s", exception.what());
+            RCLCPP_FATAL(rclcpp::get_logger("Utils"), "cv_bridge exception: %s", exception.what());
             raise(SIGABRT);
         }
 
         const cv::Mat img_const = cv_ptr->image; // Don't modify shared image in ROS.
         cv::Mat converted_img;
-        if (cv_ptr->encoding == sensor_msgs::image_encodings::BGR8)
+        if (cv_ptr->encoding == "bgr8")
         {
             if (grayscale)
             {
@@ -125,7 +134,7 @@ namespace Utils
             }
             return img_const;
         }
-        else if (cv_ptr->encoding == sensor_msgs::image_encodings::RGB8)
+        else if (cv_ptr->encoding == "rgb8")
         {
             if (grayscale)
             {
@@ -153,7 +162,7 @@ namespace Utils
         }
         else
         {
-            ROS_ERROR_STREAM("Camera Matrix is not a sequence");
+            RCLCPP_ERROR(rclcpp::get_logger("Utils"), "Camera Matrix is not a sequence");
         }
 
         cv::FileNode dnode = cam_node["D"]["data"];
@@ -167,7 +176,7 @@ namespace Utils
         }
         else
         {
-            ROS_ERROR_STREAM("Distortion coeffs is not a sequence");
+            RCLCPP_ERROR(rclcpp::get_logger("Utils"), "Distortion coeffs is not a sequence");
         }
     }
 }

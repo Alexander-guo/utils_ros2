@@ -4,8 +4,8 @@
 #include <vector>
 #include <tf2/LinearMath/Quaternion.h>
 #include <opencv2/core/core.hpp>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/CompressedImage.h>
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/compressed_image.hpp"
 namespace Utils
 {
 
@@ -21,8 +21,8 @@ namespace Utils
     bool getStampsFromTrajectory(const std::string &trajectory_path,
                                  std::vector<std::uint64_t> &time_stamps,
                                  bool skip_first_line = false);
-    const cv::Mat readRosImage(const sensor_msgs::ImageConstPtr &img_msg, bool grayscale = true);
-    const cv::Mat readCompressedRosImage(const sensor_msgs::CompressedImageConstPtr &img_msg, bool grayscale = true);
+    const cv::Mat readRosImage(const sensor_msgs::msg::Image::ConstSharedPtr &img_msg, bool grayscale = true);
+    const cv::Mat readCompressedRosImage(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &img_msg, bool grayscale = true);
 
     void readIntrinsics(cv::FileNode &cam_node, cv::Mat &K, cv::Mat &distortion_coeffs);
 

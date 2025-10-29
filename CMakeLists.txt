@@ -1,36 +1,94 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(utils_ros)
+cmake_minimum_required(VERSION 3.8)
+project(utils_ros2)
 
-set(CMAKE_CXX_STANDARD 14)
+# Use C++17
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(catkin REQUIRED COMPONENTS 
-            sensor_msgs cv_bridge roscpp rosbag message_filters
-            image_transport camera_info_manager)
-
+# ==============================================================================
+# Dependencies
+# ==============================================================================
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(camera_info_manager REQUIRED)
+find_package(message_filters REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(OpenCV  REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 
-
-catkin_package(
-		INCLUDE_DIRS include
-		CATKIN_DEPENDS sensor_msgs cv_bridge roscpp rosbag message_filters image_transport camera_info_manager
-		LIBRARIES ${PROJECT_NAME}
-)
-
+# ==============================================================================
+# Include directories
+# ==============================================================================
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIR}
+  ${EIGEN3_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
 )
 
-add_library(ros_utils 
-            src/Utils.cpp
-            src/Trajectory.cpp
-            )
+# ==============================================================================
+# Library
+# ==============================================================================
+add_library(${PROJECT_NAME}
+  src/Utils.cpp
+  src/Trajectory.cpp
+)
 
-target_link_libraries(ros_utils  ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
-target_compile_options(ros_utils  PRIVATE -march=native)
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  sensor_msgs
+  cv_bridge
+  image_transport
+  camera_info_manager
+  message_filters
+  OpenCV
+  tf2_ros
+  tf2
+  rosbag2_cpp
+)
 
+target_compile_options(${PROJECT_NAME} PRIVATE -march=native)
+
+# ==============================================================================
+# Executable
+# ==============================================================================
 add_executable(write_kf_images src/write_keyframe_image.cpp)
-target_link_libraries(write_kf_images ros_utils -lstdc++fs)
+target_link_libraries(write_kf_images ${PROJECT_NAME})
+
+
+ament_target_dependencies(write_kf_images
+  rclcpp
+  sensor_msgs
+  cv_bridge
+  image_transport
+  camera_info_manager
+  message_filters
+  OpenCV
+)
+
+# ==============================================================================
+# Installation
+# ==============================================================================
+install(TARGETS
+  ${PROJECT_NAME}
+  write_kf_images
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY include/
+  DESTINATION include/
+)
+
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
+# ==============================================================================
+# ament package
+# ==============================================================================
+ament_package()
