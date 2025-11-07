@@ -14,7 +14,6 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
-find_package(camera_info_manager REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -44,7 +43,6 @@ ament_target_dependencies(${PROJECT_NAME}
   sensor_msgs
   cv_bridge
   image_transport
-  camera_info_manager
   message_filters
   OpenCV
   tf2_ros
@@ -66,7 +64,6 @@ ament_target_dependencies(write_kf_images
   sensor_msgs
   cv_bridge
   image_transport
-  camera_info_manager
   message_filters
   OpenCV
 )

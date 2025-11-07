@@ -2,6 +2,7 @@
 #include <vector>
 #include <unordered_map>
 #include <set>
+#include <cstdint>
 #include "geometry_msgs/msg/pose.hpp"
 
 class Trajectory
